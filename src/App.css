@@ -6,7 +6,12 @@
 	background-color: #282c34;
 	text-align: center;
 }
-
+#canvas {
+	background-color: rgba(255, 255, 255, 0);
+	margin-top: 10vh;
+	height: 70vh;
+	width: 70vh;
+}
 .App-logo {
 	height: 40vmin;
 	pointer-events: none;

@@ -1,31 +1,26 @@
+import * as loader from "@assemblyscript/loader";
 import React, { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
 	const [wasmModule, setWasmModule] = useState(null);
-	const [result, setResult] = useState(0);
 	const [imageData, setImageData] = useState(null);
 
 	useEffect(() => {
 		fetch("/release.wasm")
 			.then((response) => response.arrayBuffer())
 			.then((bytes) => {
-				// Define memory for the WebAssembly module
 				const memory = new WebAssembly.Memory({ initial: 512, maximum: 4096 });
 
-				// Define the imports object
 				const imports = {
 					env: {
-						memory, // Provide memory as an import
-						// Define the abort function
+						memory,
 						abort: (_msg, _file, line, column) => {
 							console.error(`abort called at ${_file}:${line}:${column}`);
 						},
-						// Additional environment functions can be added here if needed
 					},
 				};
 
-				// Instantiate the WebAssembly module with the imports
 				return WebAssembly.instantiate(bytes, imports);
 			})
 			.then((results) => {
@@ -38,60 +33,108 @@ function App() {
 
 	useEffect(() => {
 		if (wasmModule) {
-			// Define the input data
-			const sphereCenters = [0, 0, -5];
-			const sphereRadii = [1];
-			const sphereColors = [255, 0, 0]; // Red sphere
-			const width = 12;
-			const height = 12;
-
-			// Call the render function
-
-			const pixels = new Uint8Array(
-				wasmModule.exports.memory.buffer,
-				wasmModule.exports.render(
-					sphereCenters,
-					sphereRadii,
-					sphereColors,
-					width,
-					height
-				),
-				width * height * 4
-			);
-			console.log("PIXELS LENGTH");
-			console.log(pixels.length, 4 * width * height);
-			console.log(pixels);
-
-			// Create an ImageData object from the pixel data
-			const imageData = new ImageData(
-				new Uint8ClampedArray(pixels.buffer, pixels.byteOffset, pixels.length),
-				width,
-				height
-			);
-
-			console.log(imageData);
-
-			// Set the imageData state
-			setImageData(imageData);
 		}
+
+		//wasmModule.exports.render()
 	}, [wasmModule]);
+
+	function largeIntToRGB(integer) {
+		let binaryString = integer.toString(2).padStart(24, "0");
+
+		let redBinary = binaryString.substring(0, 8);
+		let greenBinary = binaryString.substring(8, 16);
+		let blueBinary = binaryString.substring(16, 24);
+
+		let red = parseInt(redBinary, 2);
+		let green = parseInt(greenBinary, 2);
+		let blue = parseInt(blueBinary, 2);
+
+		return [red, green, blue];
+	}
 
 	return (
 		<div className="App">
-			{imageData && (
-				<canvas
-					ref={(canvas) => {
-						if (canvas) {
-							const ctx = canvas.getContext("2d");
-							if (ctx) {
-								ctx.putImageData(imageData, 0, 0);
+			<canvas width={200} height={200} id="canvas" />
+			<button
+				onClick={() => {
+					// Get a reference to the canvas and its context
+					const canvas = document.getElementById("canvas");
+					const ctx = canvas.getContext("2d");
+					ctx.imageSmoothingEnabled = false;
+
+					// Set the canvas dimensions
+					const width = (canvas.width = canvas.width);
+					const height = (canvas.height = canvas.height);
+
+					// Create an ImageData object
+					const imgData = ctx.createImageData(width, height);
+
+					for (let y = 0; y < height; y++) {
+						for (let x = 0; x < width; x++) {
+							// Call the render function to get the hit info for the current pixel
+							const pointer = wasmModule.exports.render(
+								(Number.parseFloat(x) / width) * 2 - 1,
+								(Number.parseFloat(y) / height) * 2 - 1
+							);
+
+							const memoryBuffer = new Uint8Array(
+								wasmModule.exports.memory.buffer
+							);
+							const dataView = new DataView(memoryBuffer.buffer);
+
+							let color = largeIntToRGB(pointer);
+
+							//const r = dataView.getFloat32(pointer);
+							//const g = dataView.getFloat32(pointer + 4); // Next 4 bytes
+							//const b = dataView.getFloat32(pointer + 8); // Next 4 bytes after g
+
+							//console.log(r + " " + g + " " + b);
+							const index = (y * width + x) * 4;
+							//console.log(r);
+							imgData.data[index + 0] = color[0]; // Red
+							imgData.data[index + 1] = color[1]; // Green
+							imgData.data[index + 2] = color[2]; // Blue
+							imgData.data[index + 3] = 255; // Alpha (255 is fully opaque)
+
+							/*
+							// Read the data from the DataView
+							const hit = dataView.getUint8(pointer) !== 0;
+							const distance = dataView.getFloat64(pointer + 1, true);
+							const normalOffset = pointer + 1 + 8; // adjust this based on the actual memory layout
+							const normal = {
+								x: dataView.getFloat64(normalOffset, true),
+								y: dataView.getFloat64(normalOffset + 8, true),
+								z: dataView.getFloat64(normalOffset + 16, true),
+							};
+
+							// Calculate the index in the image data array
+							const index = (y * width + x) * 4;
+
+							if (hit) {
+								// If there is a hit, use the normal to compute a simple shading
+								const shade = (normal.y + 1) * 0.5; // normal.y is in range [-1, 1], we map it to [0, 1]
+								imgData.data[index + 0] = shade * 255; // Red
+								imgData.data[index + 1] = shade * 255; // Green
+								imgData.data[index + 2] = shade * 255; // Blue
+							} else {
+								// If there is no hit, set the background color (e.g., white)
+								imgData.data[index + 0] = 0; // Red
+								imgData.data[index + 1] = 0; // Green
+								imgData.data[index + 2] = 0; // Blue
 							}
+							imgData.data[index + 3] = 255; // Alpha (255 is fully opaque)
+
+							//wasmModule.exports.__release(pointer);
+							*/
 						}
-					}}
-					width={imageData.width}
-					height={imageData.height}
-				/>
-			)}
+					}
+
+					// Put the image data on the canvas
+					ctx.putImageData(imgData, 0, 0);
+				}}
+			>
+				BUTTON
+			</button>
 		</div>
 	);
 }
