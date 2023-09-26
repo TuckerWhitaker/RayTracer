@@ -54,27 +54,32 @@ function App() {
 
 	return (
 		<div className="App">
-			<canvas width={200} height={200} id="canvas" />
+			<canvas width={800} height={800} id="canvas" />
 			<button
 				onClick={() => {
 					// Get a reference to the canvas and its context
 					const canvas = document.getElementById("canvas");
 					const ctx = canvas.getContext("2d");
+
 					ctx.imageSmoothingEnabled = false;
 
 					// Set the canvas dimensions
-					const width = (canvas.width = canvas.width);
-					const height = (canvas.height = canvas.height);
-
+					const width = canvas.width;
+					const height = canvas.height;
+					ctx.fillStyle = "rgb(0, 0, 0, 255)";
+					ctx.fillRect(0, 0, width, height);
 					// Create an ImageData object
 					const imgData = ctx.createImageData(width, height);
 
 					for (let y = 0; y < height; y++) {
 						for (let x = 0; x < width; x++) {
 							// Call the render function to get the hit info for the current pixel
+
 							const pointer = wasmModule.exports.render(
 								(Number.parseFloat(x) / width) * 2 - 1,
-								(Number.parseFloat(y) / height) * 2 - 1
+								(Number.parseFloat(y) / height) * 2 - 1,
+								width,
+								height
 							);
 
 							const memoryBuffer = new Uint8Array(
@@ -95,37 +100,6 @@ function App() {
 							imgData.data[index + 1] = color[1]; // Green
 							imgData.data[index + 2] = color[2]; // Blue
 							imgData.data[index + 3] = 255; // Alpha (255 is fully opaque)
-
-							/*
-							// Read the data from the DataView
-							const hit = dataView.getUint8(pointer) !== 0;
-							const distance = dataView.getFloat64(pointer + 1, true);
-							const normalOffset = pointer + 1 + 8; // adjust this based on the actual memory layout
-							const normal = {
-								x: dataView.getFloat64(normalOffset, true),
-								y: dataView.getFloat64(normalOffset + 8, true),
-								z: dataView.getFloat64(normalOffset + 16, true),
-							};
-
-							// Calculate the index in the image data array
-							const index = (y * width + x) * 4;
-
-							if (hit) {
-								// If there is a hit, use the normal to compute a simple shading
-								const shade = (normal.y + 1) * 0.5; // normal.y is in range [-1, 1], we map it to [0, 1]
-								imgData.data[index + 0] = shade * 255; // Red
-								imgData.data[index + 1] = shade * 255; // Green
-								imgData.data[index + 2] = shade * 255; // Blue
-							} else {
-								// If there is no hit, set the background color (e.g., white)
-								imgData.data[index + 0] = 0; // Red
-								imgData.data[index + 1] = 0; // Green
-								imgData.data[index + 2] = 0; // Blue
-							}
-							imgData.data[index + 3] = 255; // Alpha (255 is fully opaque)
-
-							//wasmModule.exports.__release(pointer);
-							*/
 						}
 					}
 
