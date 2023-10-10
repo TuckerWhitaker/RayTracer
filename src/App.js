@@ -3,28 +3,74 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
+	const Width = 100;
+	const Height = 100;
 	const [wasmModule, setWasmModule] = useState(null);
-	const [imageData, setImageData] = useState(null);
+	const [Memory, SetMemory] = useState(null);
+
+	let frameIndex = 1;
+	let Accumulator = new Float64Array(Width * Height * 4);
+
+	let memory = null;
 
 	const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+	function PRNG(seed) {
+		let state = seed;
+		const a = 1664525;
+		const c = 1013904223;
+		const m = 2 ** 32;
+
+		return {
+			next: function () {
+				state = (a * state + c) % m;
+				return state / m;
+			},
+		};
+	}
+	function seed(value) {
+		// Initialize the PRNG with the given seed value
+		const prng = PRNG(value);
+
+		// Replace Math.random with the PRNG
+		Math.random = prng.next;
+	}
+
 	useEffect(() => {
-		fetch("/release.wasm")
-			.then((response) => response.arrayBuffer())
-			.then((bytes) => {
-				const memory = new WebAssembly.Memory({ initial: 512, maximum: 4096 });
+		const arraySize = (Width * Height * 4) >>> 0;
+		const nPages = (((arraySize + 0xffff) & ~0xffff) >>> 16) + 3;
+		//	console.log(nPages);
+		memory = new WebAssembly.Memory({ initial: nPages });
+		//memory = new WebAssembly.Memory({ initial: 1000, max: 10000 });
+		SetMemory(memory);
+		const imports = {
+			env: {
+				memory,
+				abort: (_msg, _file, line, column) => {
+					console.error(`abort called at ${_file}:${line}:${column}`);
+				},
+				seed: seed,
+				"console.log": function (arg) {
+					console.log(arg);
+				},
 
-				const imports = {
-					env: {
-						memory,
-						abort: (_msg, _file, line, column) => {
-							console.error(`abort called at ${_file}:${line}:${column}`);
-						},
-					},
-				};
+				emscripten_resize_heap: function (size) {
+					return false;
+					// Implementation or stub of the function
+					// ...
+				},
+				// ... potentially other imported functions ...
+			},
+		};
 
-				return WebAssembly.instantiate(bytes, imports);
+		fetch("/test.wasm")
+			.then((response) => {
+				if (!response.ok) {
+					throw new Error(`HTTP error! Status: ${response.status}`);
+				}
+				return response;
 			})
+			.then((response) => WebAssembly.instantiateStreaming(response, imports))
 			.then((results) => {
 				setWasmModule(results.instance);
 			})
@@ -34,10 +80,9 @@ function App() {
 	}, []);
 
 	useEffect(() => {
-		if (wasmModule) {
-		}
-
-		//wasmModule.exports.render()
+		const canvas = document.getElementById("canvas");
+		const ctx = canvas.getContext("2d");
+		//AccumulationData = ctx.createImageData(Width, Height);
 	}, [wasmModule]);
 
 	function largeIntToRGB(integer) {
@@ -55,6 +100,7 @@ function App() {
 	}
 
 	async function RenderFrame() {
+		const start = Date.now();
 		// Get a reference to the canvas and its context
 		const canvas = document.getElementById("canvas");
 		const ctx = canvas.getContext("2d");
@@ -67,77 +113,93 @@ function App() {
 
 		ctx.fillStyle = "rgb(0, 0, 0, 255)";
 		ctx.fillRect(0, 0, width, height);
-		console.log("cleared");
+		//console.log("cleared");
 
 		// Create an ImageData object
-		const imgData = ctx.createImageData(width, height);
+		//const imgData = ctx.createImageData(width, height);
 
 		let X = document.getElementById("X").value;
 		let Y = document.getElementById("Y").value;
 		let Z = document.getElementById("Z").value;
 		let Scale = document.getElementById("Scale").value;
 
-		for (let y = 0; y < height; y++) {
-			for (let x = 0; x < width; x++) {
-				// Call the render function to get the hit info for the current pixel
+		const pointer = wasmModule.exports.createArray(width, height, false, Scale);
+		//console.log(pointer);
+		const uvMapRGB = new Int32Array(
+			wasmModule.exports.memory.buffer,
+			pointer,
+			width * height * 3
+		);
+		//console.log(uvMapRGB);
 
-				const pointer = wasmModule.exports.render(
-					(Number.parseFloat(x) / width) * 2 - 1,
-					(Number.parseFloat(y) / height) * 2 - 1,
-					X,
-					Y,
-					Z,
-					Scale
-				);
+		// Convert UV map from RGB to RGBA
 
-				const memoryBuffer = new Uint8Array(wasmModule.exports.memory.buffer);
-				const dataView = new DataView(memoryBuffer.buffer);
-
-				let color = largeIntToRGB(pointer);
-
-				//const r = dataView.getFloat32(pointer);
-				//const g = dataView.getFloat32(pointer + 4); // Next 4 bytes
-				//const b = dataView.getFloat32(pointer + 8); // Next 4 bytes after g
-
-				//console.log(r + " " + g + " " + b);
-				const index = (y * width + x) * 4;
-				//console.log(r);
-				imgData.data[index + 0] = color[0]; // Red
-				imgData.data[index + 1] = color[1]; // Green
-				imgData.data[index + 2] = color[2]; // Blue
-				imgData.data[index + 3] = 255; // Alpha (255 is fully opaque)
-			}
+		for (let i = 0, j = 0; i < uvMapRGB.length; i += 3, j += 4) {
+			Accumulator[j] += uvMapRGB[i];
+			Accumulator[j + 1] += uvMapRGB[i + 1];
+			Accumulator[j + 2] += uvMapRGB[i + 2];
+			Accumulator[j + 3] = 255; // Set alpha to fully opaque
+		}
+		const AccumulatedColor = new Uint8ClampedArray(width * height * 4);
+		for (let i = 0; i < Accumulator.length; i += 4) {
+			AccumulatedColor[i] = Accumulator[i] / frameIndex;
+			AccumulatedColor[i + 1] = Accumulator[i + 1] / frameIndex;
+			AccumulatedColor[i + 2] = Accumulator[i + 2] / frameIndex;
+			AccumulatedColor[i + 3] = 255; // Set alpha to fully opaque
 		}
 
+		const imageData = new ImageData(AccumulatedColor, width, height);
+		const end = Date.now();
+		console.log(`Execution time: ${end - start} ms`);
+		document.getElementById("executionTime").innerHTML = end - start + " ms";
+
+		//console.log(imgData);
 		// Put the image data on the canvas
-		ctx.putImageData(imgData, 0, 0);
-		await delay(1000);
+		ctx.putImageData(imageData, 0, 0);
+		//wasmModule.exports.free_uv_image(Ptr);
 
-		console.log(document.getElementById("CB").value);
-		if (document.getElementById("CB").value == "on") {
-			//RenderFrame();
+		await delay(50);
+		frameIndex++;
+
+		if (frameIndex <= 30) {
+			await RenderFrame();
 		}
+		await delay(50);
 	}
 
 	return (
 		<div className="App">
-			<canvas width={800} height={800} id="canvas" />
+			<canvas width={Width} height={Height} id="canvas" />
+			<div id="executionTime">0</div>
 			<button
 				onClick={async () => {
-					RenderFrame();
+					frameIndex = 1;
+					await RenderFrame();
+
+					//console.log(`Execution time: ${end - start} ms`);
+					//document.getElementById("executionTime").innerHTML =
+					//	end - start + " ms";
 				}}
 			>
 				BUTTON
 			</button>
-			<label>X: </label>
-			<input id="X" step={0.1} type="number"></input>
-			<label>Y: </label>
-			<input id="Y" step={0.1} type="number"></input>
-			<label>Z: </label>
-			<input id="Z" step={0.1} type="number"></input>
-			<label>Scale: </label>
-			<input id="Scale" step={0.1} type="number"></input>
-			<input id="CB" type="checkbox"></input>
+			<div className="InputContainer">
+				<label>X: </label>
+				<input id="X" step={0.1} type="number"></input>
+			</div>
+			<div className="InputContainer">
+				<label>Y: </label>
+				<input id="Y" step={0.1} type="number"></input>
+			</div>
+			<div className="InputContainer">
+				<label>Z: </label>
+				<input id="Z" step={0.1} type="number"></input>
+			</div>
+			<div className="InputContainer">
+				<label>Scale: </label>
+				<input id="Scale" step={0.1} type="number"></input>
+				<input id="CB" type="checkbox"></input>
+			</div>
 		</div>
 	);
 }
