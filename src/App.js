@@ -3,8 +3,8 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
-	const Width = 100;
-	const Height = 100;
+	const Width = 800;
+	const Height = 800;
 	const [wasmModule, setWasmModule] = useState(null);
 	const [Memory, SetMemory] = useState(null);
 
@@ -123,7 +123,7 @@ function App() {
 		let Z = document.getElementById("Z").value;
 		let Scale = document.getElementById("Scale").value;
 
-		const pointer = wasmModule.exports.createArray(width, height, false, Scale);
+		const pointer = wasmModule.exports.createArray(width, height, true, Scale);
 		//console.log(pointer);
 		const uvMapRGB = new Int32Array(
 			wasmModule.exports.memory.buffer,
@@ -161,7 +161,7 @@ function App() {
 		await delay(50);
 		frameIndex++;
 
-		if (frameIndex <= 30) {
+		if (frameIndex <= 1) {
 			await RenderFrame();
 		}
 		await delay(50);

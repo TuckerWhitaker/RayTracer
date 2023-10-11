@@ -2,6 +2,11 @@
 #include <stdbool.h>
 #include <math.h>
 
+
+bool visualizeNormals = false;
+
+
+
 typedef struct {
     double x, y, z;
 } Vector3;
@@ -20,6 +25,22 @@ typedef struct {
 double dot(Vector3 a, Vector3 b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
+
+Vector3 normalize(Vector3 v) {
+    double length = sqrt(dot(v, v));
+    return (Vector3){v.x / length, v.y / length, v.z / length};
+}
+
+
+Vector3 reflect(Vector3 incident, Vector3 normal) {
+    double idotn = dot(incident, normal);
+    return (Vector3) {
+        incident.x - 2.0 * idotn * normal.x,
+        incident.y - 2.0 * idotn * normal.y,
+        incident.z - 2.0 * idotn * normal.z
+    };
+}
+
 
 Vector3 computeNormal(Vector3 intersectionPoint, Sphere sphere) {
     Vector3 normal = {
@@ -62,45 +83,67 @@ bool intersectRaySphere(Ray ray, Sphere sphere, double* t) {
         return true;
     }
 }
-
 Vector3 getColorForRay(Ray ray, Sphere *spheres, Vector3 lightDirection) {
-    double t;
-    //size_t size = sizeof(spheres) / sizeof(spheres[0]);
+    const int MAX_REFLECTIONS = 3; // maximum number of reflections
+    double reflectionMultiplier = 1.0;
+    double attenuation = 0.9; // reflection attenuation factor
 
-    int lowest = 9999999;
-    int lowestIndex = -1;
-    for(int i = 0; i < 2; i++){
+    Vector3 accumulatedColor = {0, 0, 0};
 
-        if (intersectRaySphere(ray, spheres[i], &t)) {
-            if(t < lowest){
-                lowest = t;
-                lowestIndex = i;
+    for (int reflection = 0; reflection < MAX_REFLECTIONS; reflection++) {
+        double t;
+        int lowest = 9999999;
+        int lowestIndex = -1;
+        for(int i = 0; i < 2; i++) {
+            if (intersectRaySphere(ray, spheres[i], &t)) {
+                if(t < lowest) {
+                    lowest = t;
+                    lowestIndex = i;
+                }
             }
         }
-    }
 
-    if(lowestIndex != -1){
+        if(lowestIndex == -1) {
+            if(reflection == 0) { // Only add the sky color on the first miss
+                Vector3 skyColor = {120, 120, 255};
+                return skyColor;
+            }
+            break; // No intersection, break out of the reflection loop
+        }
 
         Vector3 intersectionPoint = {
             ray.origin.x + lowest * ray.direction.x,
             ray.origin.y + lowest * ray.direction.y,
             ray.origin.z + lowest * ray.direction.z
         };
-        Vector3 normal = computeNormal(intersectionPoint, spheres[lowestIndex]);
-        return calculateColor(normal, lightDirection, spheres[lowestIndex].color);
-    }
-    else{
-        return (Vector3){120, 120, 255}; // default color
-    }
-    
-}
 
+        double epsilon = 0.0001;  // small offset value
+
+        Vector3 normal = computeNormal(intersectionPoint, spheres[lowestIndex]);
+
+        intersectionPoint.x += epsilon * normal.x;
+        intersectionPoint.y += epsilon * normal.y;
+        intersectionPoint.z += epsilon * normal.z;
+
+        Vector3 color = calculateColor(normal, lightDirection, spheres[lowestIndex].color);
+
+        accumulatedColor.x += reflectionMultiplier * color.x;
+        accumulatedColor.y += reflectionMultiplier * color.y;
+        accumulatedColor.z += reflectionMultiplier * color.z;
+
+        ray.origin = intersectionPoint;
+        ray.direction = normalize(reflect(ray.direction, normal));
+        reflectionMultiplier *= attenuation;
+    }
+
+    return accumulatedColor;
+}
 int* createArray(int width, int height, bool useSampling, float scale) {
     const int samplesPerPixel = 10;
     int* arr = (int*)malloc(width * height * 3 * sizeof(int));
     Vector3 lightDirection = {-1, -1, -1};
-    Sphere sphere = {{0, 0, 0}, scale, {255, 0, 255}};
-    Sphere sphere1 = {{1.5, 0, 0}, 0.5, {255, 100, 100}};
+    Sphere sphere = {{0, 0, 0}, scale, {200, 200, 0}};
+    Sphere sphere1 = {{0, 11, 1}, 9, {10, 200, 250}};
     Sphere spheres[2] = {sphere, sphere1};
     
     // Normalize light direction
@@ -117,7 +160,9 @@ int* createArray(int width, int height, bool useSampling, float scale) {
                 double offsetY = useSampling ? (rand() / (double)RAND_MAX) : 0;
                 double u = (2.0 * (x + offsetX) - width) / width;
                 double v = (2.0 * (y + offsetY) - height) / height;
-                Ray ray = {{0, 0, -3}, {u, v, 1}};
+                Vector3 rayDirection = {u, v, 1};
+                rayDirection = normalize(rayDirection);
+                Ray ray = {{0, 0, -3}, rayDirection};
                 
                 Vector3 color = getColorForRay(ray, spheres, lightDirection);
                 accumulatedColor.x += color.x;
