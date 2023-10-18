@@ -3,8 +3,9 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
-	const Width = 800;
-	const Height = 800;
+	const Width = 200;
+	const Height = 200;
+	console.log("Expected Time: " + Width * Height * 0.0113625 + "ms");
 	const [wasmModule, setWasmModule] = useState(null);
 	const [Memory, SetMemory] = useState(null);
 
@@ -52,6 +53,9 @@ function App() {
 				seed: seed,
 				"console.log": function (arg) {
 					console.log(arg);
+				},
+				emscripten_memcpy_js: function (/* parameters */) {
+					// Your implementation here...
 				},
 
 				emscripten_resize_heap: function (size) {
@@ -118,12 +122,7 @@ function App() {
 		// Create an ImageData object
 		//const imgData = ctx.createImageData(width, height);
 
-		let X = document.getElementById("X").value;
-		let Y = document.getElementById("Y").value;
-		let Z = document.getElementById("Z").value;
-		let Scale = document.getElementById("Scale").value;
-
-		const pointer = wasmModule.exports.createArray(width, height, true, Scale);
+		const pointer = wasmModule.exports.createArray(width, height, true, 1);
 		//console.log(pointer);
 		const uvMapRGB = new Int32Array(
 			wasmModule.exports.memory.buffer,
@@ -160,11 +159,11 @@ function App() {
 
 		await delay(50);
 		frameIndex++;
-
+		await delay(100);
+		console.log(frameIndex);
 		if (frameIndex <= 1) {
 			await RenderFrame();
 		}
-		await delay(50);
 	}
 
 	return (
@@ -183,23 +182,6 @@ function App() {
 			>
 				BUTTON
 			</button>
-			<div className="InputContainer">
-				<label>X: </label>
-				<input id="X" step={0.1} type="number"></input>
-			</div>
-			<div className="InputContainer">
-				<label>Y: </label>
-				<input id="Y" step={0.1} type="number"></input>
-			</div>
-			<div className="InputContainer">
-				<label>Z: </label>
-				<input id="Z" step={0.1} type="number"></input>
-			</div>
-			<div className="InputContainer">
-				<label>Scale: </label>
-				<input id="Scale" step={0.1} type="number"></input>
-				<input id="CB" type="checkbox"></input>
-			</div>
 		</div>
 	);
 }
