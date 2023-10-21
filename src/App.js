@@ -3,8 +3,8 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
-	const Width = 200;
-	const Height = 200;
+	const Width = 800;
+	const Height = 800;
 	console.log("Expected Time: " + Width * Height * 0.0113625 + "ms");
 	const [wasmModule, setWasmModule] = useState(null);
 	const [Memory, SetMemory] = useState(null);
@@ -31,7 +31,7 @@ function App() {
 	}
 	function seed(value) {
 		// Initialize the PRNG with the given seed value
-		const prng = PRNG(value);
+		const prng = PRNG(value * Math.random());
 
 		// Replace Math.random with the PRNG
 		Math.random = prng.next;
