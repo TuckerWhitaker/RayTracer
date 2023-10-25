@@ -1,10 +1,11 @@
 import * as loader from "@assemblyscript/loader";
+import { WASI } from "@wasmer/wasi";
 import React, { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
-	const Width = 800;
-	const Height = 800;
+	const Width = 100;
+	const Height = 100;
 	console.log("Expected Time: " + Width * Height * 0.0113625 + "ms");
 	const [wasmModule, setWasmModule] = useState(null);
 	const [Memory, SetMemory] = useState(null);
@@ -44,11 +45,15 @@ function App() {
 		memory = new WebAssembly.Memory({ initial: nPages });
 		//memory = new WebAssembly.Memory({ initial: 1000, max: 10000 });
 		SetMemory(memory);
+
 		const imports = {
 			env: {
 				memory,
 				abort: (_msg, _file, line, column) => {
 					console.error(`abort called at ${_file}:${line}:${column}`);
+				},
+				exit: () => {
+					throw new Error("Program called exit()");
 				},
 				seed: seed,
 				"console.log": function (arg) {
@@ -57,12 +62,12 @@ function App() {
 				emscripten_memcpy_js: function (/* parameters */) {
 					// Your implementation here...
 				},
-
 				emscripten_resize_heap: function (size) {
 					return false;
 					// Implementation or stub of the function
 					// ...
 				},
+
 				// ... potentially other imported functions ...
 			},
 		};
@@ -104,6 +109,9 @@ function App() {
 	}
 
 	async function RenderFrame() {
+		const worker = new Worker("test.worker.js");
+		console.log(worker);
+
 		const start = Date.now();
 		// Get a reference to the canvas and its context
 		const canvas = document.getElementById("canvas");
@@ -121,6 +129,46 @@ function App() {
 
 		// Create an ImageData object
 		//const imgData = ctx.createImageData(width, height);
+
+		const NUM_WORKERS = 4; // Adjust as needed
+		const workers = [];
+		const width_per_thread = width / NUM_WORKERS;
+		console.log("B");
+		for (let i = 0; i < NUM_WORKERS; i++) {
+			const worker = new Worker("test.worker.js");
+			worker.onerror = function (e) {
+				console.log(e);
+			};
+			worker.onmessage = function (e) {
+				console.log("worker on message");
+				const { start_x, end_x, width, height, useSampling } = e.data;
+				const result = wasmModule.exports.renderColumn(
+					start_x,
+					end_x,
+					width,
+					height,
+					useSampling
+				); // Assuming createArray is the name of the function exported from WebAssembly
+				console.log(result);
+				worker.postMessage(result);
+				// Process result here, e.g., combine into final image
+			};
+			workers.push(worker);
+			const start_x = i * width_per_thread;
+			const end_x = (i + 1) * width_per_thread;
+			let useSampling = true;
+			//worker.postMessage({ start_x, end_x, width, height, useSampling });
+			worker.postMessage({
+				cmd: "render",
+				start_x,
+				end_x,
+				width,
+				height,
+				useSampling,
+			});
+			console.log(workers);
+		}
+		console.log("B For loop eend");
 
 		const pointer = wasmModule.exports.createArray(width, height, true, 1);
 		//console.log(pointer);

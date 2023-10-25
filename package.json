@@ -7,6 +7,7 @@
 		"@testing-library/jest-dom": "^5.17.0",
 		"@testing-library/react": "^13.4.0",
 		"@testing-library/user-event": "^13.5.0",
+		"@wasmer/wasi": "^0.12.0",
 		"fs": "^0.0.1-security",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
@@ -16,6 +17,8 @@
 	"scripts": {
 		"start": "react-scripts start",
 		"build": "react-scripts build",
+		"Wstart": "webpack serve --mode development",
+		"Wbuild": "webpack --mode production",
 		"test": "react-scripts test",
 		"eject": "react-scripts eject",
 		"asrun": "cd assembly && npm run asbuild:release && cd .. && npm run start",
@@ -40,6 +43,11 @@
 		]
 	},
 	"devDependencies": {
-		"assemblyscript": "^0.27.9"
+		"assemblyscript": "^0.27.9",
+		"css-loader": "^6.8.1",
+		"style-loader": "^3.3.3",
+		"webpack": "^5.89.0",
+		"webpack-cli": "^5.1.4",
+		"webpack-dev-server": "^4.15.1"
 	}
 }

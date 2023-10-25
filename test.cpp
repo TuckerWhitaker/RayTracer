@@ -210,7 +210,7 @@ Vector3 getColorForRay(Ray ray, Sphere *spheres, Vector3 lightDirection, Vector3
 
 EMSCRIPTEN_KEEPALIVE
 extern "C" {
-int* createArray(int width, int height, bool useSampling, float scale) {
+int* createArray(int width, int height, int start_x, int end_x, bool useSampling) {
     const int samplesPerPixel = 10;
     int* arr = (int*)malloc(width * height * 3 * sizeof(int));
     float* AccumulationArray = (float*)malloc(width * height * 3 * sizeof(float));
@@ -225,7 +225,7 @@ int* createArray(int width, int height, bool useSampling, float scale) {
     Sphere spheres[3] = {sphere, sphere1, sphere2};
 
 
-    int accumulationNum = 150;
+    int accumulationNum = 3;
 
     for(int acc = 1; acc < accumulationNum; acc++){
 
@@ -234,7 +234,7 @@ int* createArray(int width, int height, bool useSampling, float scale) {
 
         //Thread
 
-        for (int x = 0; x < width; x++) {
+        for (int x = start_x; x < end_x; x++) {
             Vector3 accumulatedColor = {0, 0, 0};
             int samples = useSampling ? samplesPerPixel : 1;
 
@@ -297,5 +297,34 @@ int* createArray(int width, int height, bool useSampling, float scale) {
 
 
     return arr;
+}
+}
+
+typedef struct {
+    int start_x;
+    int end_x;
+    int height;
+    int width;
+    bool useSampling;
+} ThreadArgs;
+
+EMSCRIPTEN_KEEPALIVE
+extern "C" {
+void* renderColumn(void* args) {
+    // Cast args to the correct type
+    ThreadArgs* thread_args = (ThreadArgs*)args;
+
+    // Unpack arguments
+    int start_x = thread_args->start_x;
+    int end_x = thread_args->end_x;
+    int width = thread_args->width;
+    int height = thread_args->height;
+    bool useSampling = thread_args->useSampling;
+
+    // Call createArray for this column
+    int* columnPixels = createArray(width, height, start_x, end_x, useSampling);
+
+    // Return the resulting pixel data
+    return columnPixels;
 }
 }
