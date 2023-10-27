@@ -7,7 +7,16 @@
 	background-color: rgb(51, 51, 51);
 	color: white;
 }
+#canvas0 {
+	display: none;
+}
 
 #canvas1 {
-	display: none;
+	transform: scaleY(-1);
+}
+
+.Column {
+	height: 100%;
+	width: 100%;
+	background-color: rgb(29, 29, 29);
 }

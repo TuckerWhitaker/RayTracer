@@ -22,7 +22,7 @@ float random (vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898,78.233 * u_time))) * 43758.5453123);
 }
 
-const int numSpheres = 2;
+const int numSpheres = 5;
 vec3 sphereCenters[numSpheres];
 float sphereRadii[numSpheres];
 Material materials[numSpheres];
@@ -56,7 +56,7 @@ HitInfo castRay(vec3 rayOrigin, vec3 rayDirection) {
     for (int i = 0; i < numSpheres; ++i) {
         float t;
         if (IntersectRaySphere(rayOrigin, rayDirection, sphereCenters[i], sphereRadii[i], t)) {
-            if (t < closestHit.distance) {
+            if (t < closestHit.distance && t > 0.001) {
                 closestHit.hit = true;
                 closestHit.distance = t;
                 closestHit.sphereCenter = sphereCenters[i];
@@ -79,9 +79,9 @@ vec3 calculateNormal(vec3 rayOrigin, vec3 rayDirection, float dist, vec3 sphereC
     return normalize((calculateHitPosition(rayOrigin, rayDirection, dist) - sphereCenter));
 }
 
-const int maxBounces = 5;
-vec3 skyColor = vec3(0.8, 0.9, 0.99);
-//vec3 skyColor = vec3(0.0, 0.0, 0.0);
+const int maxBounces = 15;
+//vec3 skyColor = vec3(0.8, 0.9, 0.99);
+vec3 skyColor = vec3(0.0, 0.0, 0.0);
 
 vec3 calculateReflectionRay(vec3 rayDirection, vec3 normal) {
     return rayDirection - 2.0 * dot(rayDirection, normal) * normal;
@@ -96,13 +96,22 @@ void main(void) {
     vec3 rayOrigin = vec3(0.0, 0.0, 0.0);
     vec3 rayDirection = normalize(vec3(uv, -1.0));
 
-    sphereCenters[0] = vec3(0.0, 0.0, -5.0);
-    sphereRadii[0] = 1.0;
-    sphereCenters[1] = vec3(0.0, -101.1, -5.0);
-    sphereRadii[1] = 100.0;
+    sphereCenters[0] = vec3(150.0, 0.0, 150.0);
+    sphereRadii[0] = 125.0;
+    sphereCenters[1] = vec3(0.0, -201.1, -5.0);
+    sphereRadii[1] = 200.0;
+    sphereCenters[2] = vec3(0.5, -0.1, -2.0);
+    sphereRadii[2] = 1.0;
+    sphereCenters[3] = vec3(-6.0, 2.0, -10.0);
+    sphereRadii[3] = 3.0;
+    sphereCenters[4] = vec3(-4.0, 0.0, -3.0);
+    sphereRadii[4] = 1.2;
 
-    materials[0] = Material(vec3(1.0, 0.0, 0.0), 0.0, 0.5, vec3(0.0));  
-    materials[1] = Material(vec3(0.1, 0.1, 0.1), 0.05, 0.5, vec3(0.0));  
+    materials[0] = Material(vec3(1.0, 0.6, 0.0), 0.5, 1.0, vec3(1.0, 0.6, 0.0));  
+    materials[1] = Material(vec3(1.0, 1.0, 1.0), 0.55, 0.5, vec3(0.0));  
+    materials[2] = Material(vec3(0.4, 1.0, 0.4), 0.9, 0.5, vec3(0.0));  
+    materials[3] = Material(vec3(0.7, 0.7, 1.0), 0.0, 1.0, vec3(0.0, 0.0, 0.0));  
+    materials[4] = Material(vec3(0.1, 0.9, 1.0), 1.0, 1.0, vec3(0.1, 0.9, 1.0));  
 
 
     vec3 accumulatedColor = vec3(0.0);
@@ -118,23 +127,24 @@ void main(void) {
             vec3 localColor = hitInfo.color;  // Assuming diffuse shading for simplicity
 
             // Modulate local color and accumulated color
-            accumulatedColor += reflectionMultiplier * localColor;  // Modulate local color by reflectionMultiplier
-            accumulatedColor += reflectionMultiplier * hitInfo.emission;  // Adding emissive color
+            //accumulatedColor += reflectionMultiplier * localColor;  // Modulate local color by reflectionMultiplier
+            accumulatedColor += reflectionMultiplier * localColor * hitInfo.emission * 10.0;  // Adding emissive color
+            reflectionMultiplier *= localColor;
             // Compute reflection
-            rayDirection = calculateReflectionRay(rayDirection, normal);
-            rayOrigin = hitPosition + normal * 0.01;
+            //rayDirection = calculateReflectionRay(rayDirection, normal);
+            rayOrigin = hitPosition + normal * 0.001;
             vec3 randomVector = vec3(
-                    random(gl_FragCoord.xy + vec2(0.0, 0.0))-0.5,
-                    random(gl_FragCoord.xy + vec2(12.99, 78.23))-0.5,
-                    random(gl_FragCoord.xy + vec2(24.53, 9.49))-0.5
+                    (random(gl_FragCoord.xy + vec2(0.0, 0.0))*2.0)-1.0,
+                    (random(gl_FragCoord.xy + vec2(12.99, 78.23))*2.0)-1.0,
+                    (random(gl_FragCoord.xy + vec2(24.53, 9.49))*2.0)-1.0
             );
 
-            rayDirection = mix(rayDirection, normalize(randomVector), hitInfo.roughness);
-
+            rayDirection = mix(normal, normalize(randomVector), hitInfo.roughness);
+            
 
 
             // Attenuate reflection multiplier for next bounce
-            reflectionMultiplier *= hitInfo.metallic;  // Example attenuation factor
+            //reflectionMultiplier *= hitInfo.metallic;  // Example attenuation factor
         } 
         else
         {
@@ -143,6 +153,7 @@ void main(void) {
 
         }
 }
-
+    //gamma correction
+    accumulatedColor = sqrt(accumulatedColor);
     gl_FragColor = vec4(accumulatedColor, 1.0);
 }
