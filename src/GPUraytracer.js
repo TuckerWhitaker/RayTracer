@@ -7,6 +7,11 @@ function GPUraytracer() {
 	const [Accumulator, setAccumulator] = useState(
 		new Float64Array(900 * 900 * 4)
 	); // Assuming a 900x900 canvas
+	const [Position, SetPosition] = useState([0.5, -0.1, -3.0]);
+
+	function delay(time) {
+		return new Promise((resolve) => setTimeout(resolve, time));
+	}
 
 	function processAccumulatorData(accumulator, count, width, height) {
 		const data = new Uint8ClampedArray(width * height * 4);
@@ -16,54 +21,83 @@ function GPUraytracer() {
 		return new ImageData(data, width, height);
 	}
 
-	const render = useCallback((gl, shaderProgram, vertexBuffer, time) => {
-		// Get the attribute and uniform locations, enable them
-		var coord = gl.getAttribLocation(shaderProgram, "coordinates");
-		gl.vertexAttribPointer(
-			coord,
-			2,
-			gl.FLOAT,
-			false,
-			4 * Float32Array.BYTES_PER_ELEMENT,
-			0
-		);
-		gl.enableVertexAttribArray(coord);
+	const render = useCallback(
+		(gl, shaderProgram, vertexBuffer, time) => {
+			//let greenSpherePosition = [0.5, -0.1, -3.0]; // Example position
+			let location = gl.getUniformLocation(
+				shaderProgram,
+				"u_greenSpherePosition"
+			);
 
-		var textureCoord = gl.getAttribLocation(shaderProgram, "textureCoord");
-		gl.vertexAttribPointer(
-			textureCoord,
-			2,
-			gl.FLOAT,
-			false,
-			4 * Float32Array.BYTES_PER_ELEMENT,
-			2 * Float32Array.BYTES_PER_ELEMENT
-		);
-		gl.enableVertexAttribArray(textureCoord);
+			gl.uniform3fv(location, Position);
+			// Get the attribute and uniform locations, enable them
+			var coord = gl.getAttribLocation(shaderProgram, "coordinates");
+			gl.vertexAttribPointer(
+				coord,
+				2,
+				gl.FLOAT,
+				false,
+				4 * Float32Array.BYTES_PER_ELEMENT,
+				0
+			);
+			gl.enableVertexAttribArray(coord);
 
-		var u_timeLocation = gl.getUniformLocation(shaderProgram, "u_time");
-		gl.uniform1f(u_timeLocation, time);
+			var textureCoord = gl.getAttribLocation(shaderProgram, "textureCoord");
+			gl.vertexAttribPointer(
+				textureCoord,
+				2,
+				gl.FLOAT,
+				false,
+				4 * Float32Array.BYTES_PER_ELEMENT,
+				2 * Float32Array.BYTES_PER_ELEMENT
+			);
+			gl.enableVertexAttribArray(textureCoord);
 
-		gl.clearColor(1.0, 0.0, 0.0, 1.0);
+			var u_timeLocation = gl.getUniformLocation(shaderProgram, "u_time");
+			gl.uniform1f(u_timeLocation, time);
+
+			gl.clearColor(1.0, 0.0, 0.0, 1.0);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+
+			// Draw the rectangle
+			gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+			const pixels = new Uint8Array(900 * 900 * 4);
+			gl.readPixels(0, 0, 900, 900, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+			// Update the Accumulator array
+			for (let i = 0; i < pixels.length; i++) {
+				Accumulator[i] += pixels[i];
+			}
+			setAccumulator(Accumulator);
+		},
+		[Position]
+	);
+
+	function resetCanvases() {
+		// Clear the WebGL canvas
+
+		const gl = canvasRef.current.getContext("webgl");
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 
-		// Draw the rectangle
-		gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+		// Clear the 2D canvas
+		const ctx = canvasRef1.current.getContext("2d");
+		ctx.clearRect(0, 0, canvasRef1.current.width, canvasRef1.current.height);
 
-		const pixels = new Uint8Array(900 * 900 * 4);
-		gl.readPixels(0, 0, 900, 900, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-		// Update the Accumulator array
-		for (let i = 0; i < pixels.length; i++) {
-			Accumulator[i] += pixels[i];
+		for (let i = 0; i < Accumulator.length; i++) {
+			Accumulator[i] -= Accumulator[i];
 		}
 		setAccumulator(Accumulator);
-	}, []);
+	}
 
-	useEffect(() => {
+	function Setup() {
 		const canvas = canvasRef.current;
 		const canvas1 = canvasRef1.current;
 		const gl = canvas.getContext("webgl");
 		const ctx = canvas1.getContext("2d");
+
+		resetCanvases();
 
 		if (gl === null) {
 			alert("WebGL not supported");
@@ -146,7 +180,7 @@ function GPUraytracer() {
 			// Bind the buffer, i.e., let's use the buffer we've just created
 			gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 
-			let renderCount = 5000;
+			let renderCount = 100;
 
 			for (let i = 1; i < renderCount; i++) {
 				var time = Math.random();
@@ -164,7 +198,15 @@ function GPUraytracer() {
 			// Draw the ImageData to the canvas
 			ctx.putImageData(imageData, 0, 0);
 		});
+	}
+
+	useEffect(() => {
+		Setup();
 	}, []);
+
+	useEffect(() => {
+		//console.log(Position);
+	}, [Position]);
 
 	return (
 		<div className="GPUraytracer">
@@ -174,7 +216,14 @@ function GPUraytracer() {
 				<canvas id="canvas1" ref={canvasRef1} width={900} height={900}></canvas>
 			</div>
 			<div className="Column">
-				<Inspector></Inspector>
+				<Inspector SetPosition={SetPosition} Position={Position}></Inspector>
+				<button
+					onClick={() => {
+						Setup();
+					}}
+				>
+					Render
+				</button>
 			</div>
 		</div>
 	);
