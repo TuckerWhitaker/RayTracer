@@ -142,14 +142,15 @@ HitInfo castRay(vec3 rayOrigin, vec3 rayDirection) {
 }
 
 const int maxBounces = 10;
-vec3 skyColor = vec3(0.7, 0.7, 0.9);
-//vec3 skyColor = vec3(0.0, 0.0, 0.0);
+//vec3 skyColor = vec3(0.7, 0.7, 0.9);
+vec3 skyColor = vec3(0.0, 0.0, 0.0);
 
 vec3 calculateReflectionRay(vec3 rayDirection, vec3 normal) {
     return rayDirection - 2.0 * dot(rayDirection, normal) * normal;
 }
 
 uniform vec3 u_greenSpherePosition;
+
 
 void main(void) {
     vec2 resolution = vec2(900.0, 900.0);
@@ -159,28 +160,32 @@ void main(void) {
     vec3 rayOrigin = vec3(0.0, 0.0, 0.0);
     vec3 rayDirection = normalize(vec3(uv, -1.0));
 
-    materials[0] = Material(vec3(1.0, 0.6, 0.0), 0.5, 1.0, vec3(0.9, 0.7, 0.0));  
-    materials[1] = Material(vec3(1.0, 1.0, 1.0), 1.0, 0.5, vec3(0.0));  
+    materials[0] = Material(vec3(0.4, 0.5, 0.4), 0.5, 0.0, vec3(0.4, 0.5, 0.4));  
+    materials[1] = Material(vec3(0.1, 0.2, 0.5), 1.0, 0.5, vec3(0.0));  
     materials[2] = Material(vec3(0.1, 1.0, 0.1), 1.0, 0.5, vec3(0.0));  
     materials[3] = Material(vec3(0.7, 0.7, 1.0), 0.0, 1.0, vec3(0.0, 0.0, 0.0));  
-    materials[4] = Material(vec3(0.1, 0.9, 1.0), 0.9, 1.0, vec3(0.1, 0.9, 1.0));  
+    materials[4] = Material(vec3(1.0, 0.0, 1.0), 0.9, 1.0, vec3(1.0, 0.0, 1.0));  
 
 
 
-    spheres[0] = Sphere(vec3(100.0, 100.0, 150.0), 125.0, materials[0]);
+    spheres[0] = Sphere(vec3(75.0, 100.0, 150.0), 125.0, materials[0]);
     spheres[1] = Sphere(vec3(0.0, -201.1, -5.0), 200.0, materials[1]);
     spheres[2] = Sphere(vec3(0.5, -0.1, -3.0), 1.0, materials[2]);
     spheres[3] = Sphere(vec3(-6.0, 2.0, -8.0), 5.0, materials[3]);
-    spheres[4] = Sphere(vec3(-1.0, -0.5, -2.0), 0.5, materials[4]);
+    spheres[4] = Sphere(vec3(5.0, -1.0, 5.0), 0.5, materials[4]);
 
-    triangleVertices[0] = vec3(-1.0, -1.0, -5.5);
-    triangleVertices[1] = vec3( 1.0, -1.0, -5.5);
-    triangleVertices[2] = vec3(-1.0,  1.0, -5.5);
-    triangleVertices[3] = vec3( 1.0, -1.0, -5.5);
-    triangleVertices[4] = vec3( 1.0,  1.0, -5.5);
-    triangleVertices[5] = vec3(-1.0,  1.0, -5.5);
-    triangleMaterials[0] = Material(vec3(1.0, 1.0, 1.0), 1.0, 0.5, vec3(0.0));
-    triangleMaterials[1] = Material(vec3(1.0, 1.0, 1.0), 1.0, 0.5, vec3(0.0));
+    triangleVertices[0] = vec3(-1.0, -1.0, 50.5);
+    triangleVertices[1] = vec3( 1.0, -1.0, 50.5);
+    triangleVertices[2] = vec3(-1.0,  1.0, 50.5);
+    triangleVertices[3] = vec3( 1.0, -1.0, 50.5);
+    triangleVertices[4] = vec3( 1.0,  1.0, 50.5);
+    triangleVertices[5] = vec3(-1.0,  1.0, 50.5);
+    triangleMaterials[0] = Material(vec3(0.0, 0.0, 0.0), 1.0, 0.5, vec3(0.0));
+    triangleMaterials[1] = Material(vec3(0.0, 0.0, 0.0), 1.0, 0.5, vec3(0.0));
+
+
+    
+
 
     vec3 accumulatedColor = vec3(0.0);
     vec3 reflectionMultiplier = vec3(1.0);  // Initialize reflection multiplier to 1

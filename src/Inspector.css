@@ -1,3 +1,4 @@
+/* Inspector.css */
 .Inspector {
 	padding: 1%;
 	padding-top: 5%;
@@ -8,23 +9,29 @@
 	background-color: rgb(15, 15, 15);
 	width: 100%;
 	height: fit-content;
+	margin-bottom: 1em;
 }
 
 .InspectorChildProp {
 	display: flex;
+	flex-wrap: wrap;
 	justify-content: space-between;
+	margin-top: 1em;
 }
 
 .InspectorChildPropTitle {
+	width: 100%;
+	margin-bottom: 0.5em;
 }
 
 .InspectorChildPropContent {
 	display: flex;
-	justify-content: space-around;
+	width: 100%;
+	justify-content: space-between;
 }
 
 .InspectorChildPropContentLabel {
-	margin-right: -7%;
+	margin-right: 5%;
 }
 
 .InspectorChildPropContentInput {

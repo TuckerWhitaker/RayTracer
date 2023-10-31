@@ -9,6 +9,30 @@ function GPUraytracer() {
 	); // Assuming a 900x900 canvas
 	const [Position, SetPosition] = useState([0.5, -0.1, -3.0]);
 
+	const [spheres, setSpheres] = useState([
+		{
+			Position: [0.5, -0.1, -3.0],
+			Scale: 1.0,
+			Color: [1.0, 1.0, 1.0],
+			Roughness: 0.5,
+		},
+		{
+			Position: [0.0, 0.0, -3.0],
+			Scale: 1.0,
+			Color: [1.0, 0.0, 0.0],
+			Roughness: 1.0,
+		},
+	]);
+
+	const [selectedSphereIndex, setSelectedSphereIndex] = useState(0);
+	const selectedSphere = spheres[selectedSphereIndex];
+
+	const updateSphereData = (index, data) => {
+		const newSpheres = [...spheres];
+		newSpheres[index] = { ...newSpheres[index], ...data };
+		setSpheres(newSpheres);
+	};
+
 	function delay(time) {
 		return new Promise((resolve) => setTimeout(resolve, time));
 	}
@@ -23,13 +47,21 @@ function GPUraytracer() {
 
 	const render = useCallback(
 		(gl, shaderProgram, vertexBuffer, time) => {
-			//let greenSpherePosition = [0.5, -0.1, -3.0]; // Example position
-			let location = gl.getUniformLocation(
-				shaderProgram,
-				"u_greenSpherePosition"
-			);
+			let positions = [];
+			spheres.forEach((sphere) => {
+				positions.push(...sphere.Position);
+			});
 
-			gl.uniform3fv(location, Position);
+			//console.log(positions);
+			positions = [1.0, 1.0, -10.0];
+			let spherePositions = new Float32Array(positions);
+
+			var colorsLocation = gl.getUniformLocation(
+				shaderProgram,
+				"u_SpherePositions"
+			);
+			gl.uniform3fv(colorsLocation, spherePositions);
+
 			// Get the attribute and uniform locations, enable them
 			var coord = gl.getAttribLocation(shaderProgram, "coordinates");
 			gl.vertexAttribPointer(
@@ -92,6 +124,7 @@ function GPUraytracer() {
 	}
 
 	function Setup() {
+		console.log(spheres);
 		const canvas = canvasRef.current;
 		const canvas1 = canvasRef1.current;
 		const gl = canvas.getContext("webgl");
@@ -210,13 +243,42 @@ function GPUraytracer() {
 
 	return (
 		<div className="GPUraytracer">
-			<div className="Column">Object List</div>
+			<div className="objectList">
+				{spheres.map((_, index) => (
+					<button
+						key={index}
+						className={`sphereButton ${
+							index === selectedSphereIndex ? "active" : ""
+						}`}
+						onClick={() => setSelectedSphereIndex(index)}
+					>
+						Sphere {index + 1}
+					</button>
+				))}
+			</div>
 			<div className="Column">
 				<canvas id="canvas0" ref={canvasRef} width={900} height={900}></canvas>
 				<canvas id="canvas1" ref={canvasRef1} width={900} height={900}></canvas>
 			</div>
 			<div className="Column">
-				<Inspector SetPosition={SetPosition} Position={Position}></Inspector>
+				<Inspector
+					Position={selectedSphere.Position}
+					Scale={selectedSphere.Scale}
+					Color={selectedSphere.Color}
+					Roughness={selectedSphere.Roughness}
+					SetPosition={(newPos) =>
+						updateSphereData(selectedSphereIndex, { Position: newPos })
+					}
+					SetScale={(newScale) =>
+						updateSphereData(selectedSphereIndex, { Scale: newScale })
+					}
+					SetColor={(newColor) =>
+						updateSphereData(selectedSphereIndex, { Color: newColor })
+					}
+					SetRoughness={(newRoughness) =>
+						updateSphereData(selectedSphereIndex, { Roughness: newRoughness })
+					}
+				></Inspector>
 				<button
 					onClick={() => {
 						Setup();
