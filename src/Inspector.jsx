@@ -5,7 +5,6 @@ function Inspector(props) {
 	return (
 		<div className="Inspector">
 			<div className="InspectorChild">
-				<div>Transform</div>
 				<div className="InspectorChildProp">
 					<div className="InspectorChildPropTitle">Position</div>
 					<div className="InspectorChildPropContent">

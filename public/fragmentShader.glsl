@@ -142,8 +142,8 @@ HitInfo castRay(vec3 rayOrigin, vec3 rayDirection) {
 }
 
 const int maxBounces = 10;
-//vec3 skyColor = vec3(0.7, 0.7, 0.9);
-vec3 skyColor = vec3(0.0, 0.0, 0.0);
+vec3 skyColor = vec3(0.7, 0.7, 0.9);
+//vec3 skyColor = vec3(0.0, 0.0, 0.0);
 
 vec3 calculateReflectionRay(vec3 rayDirection, vec3 normal) {
     return rayDirection - 2.0 * dot(rayDirection, normal) * normal;

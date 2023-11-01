@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import DropDown from "./DropDown";
 import "./GPUraytracer.css";
 import Inspector from "./Inspector";
+
 function GPUraytracer() {
 	const canvasRef = useRef(null);
 	const canvasRef1 = useRef(null);
@@ -213,7 +215,7 @@ function GPUraytracer() {
 			// Bind the buffer, i.e., let's use the buffer we've just created
 			gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 
-			let renderCount = 100;
+			let renderCount = 50;
 
 			for (let i = 1; i < renderCount; i++) {
 				var time = Math.random();
@@ -261,24 +263,32 @@ function GPUraytracer() {
 				<canvas id="canvas1" ref={canvasRef1} width={900} height={900}></canvas>
 			</div>
 			<div className="Column">
-				<Inspector
-					Position={selectedSphere.Position}
-					Scale={selectedSphere.Scale}
-					Color={selectedSphere.Color}
-					Roughness={selectedSphere.Roughness}
-					SetPosition={(newPos) =>
-						updateSphereData(selectedSphereIndex, { Position: newPos })
+				<DropDown
+					Header={"Transform"}
+					Content={
+						<Inspector
+							Position={selectedSphere.Position}
+							Scale={selectedSphere.Scale}
+							Color={selectedSphere.Color}
+							Roughness={selectedSphere.Roughness}
+							SetPosition={(newPos) =>
+								updateSphereData(selectedSphereIndex, { Position: newPos })
+							}
+							SetScale={(newScale) =>
+								updateSphereData(selectedSphereIndex, { Scale: newScale })
+							}
+							SetColor={(newColor) =>
+								updateSphereData(selectedSphereIndex, { Color: newColor })
+							}
+							SetRoughness={(newRoughness) =>
+								updateSphereData(selectedSphereIndex, {
+									Roughness: newRoughness,
+								})
+							}
+						></Inspector>
 					}
-					SetScale={(newScale) =>
-						updateSphereData(selectedSphereIndex, { Scale: newScale })
-					}
-					SetColor={(newColor) =>
-						updateSphereData(selectedSphereIndex, { Color: newColor })
-					}
-					SetRoughness={(newRoughness) =>
-						updateSphereData(selectedSphereIndex, { Roughness: newRoughness })
-					}
-				></Inspector>
+				></DropDown>
+
 				<button
 					onClick={() => {
 						Setup();
