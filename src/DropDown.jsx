@@ -5,18 +5,22 @@ function DropDown(props) {
 				className="DropDownHeaderBtn"
 				onClick={() => {
 					if (
-						document.getElementById("DropDownContent").style.display == "none"
+						document.getElementById("DropDownContent" + props.ID).style
+							.display == "none"
 					) {
-						document.getElementById("DropDownContent").style.display = "flex";
+						document.getElementById(
+							"DropDownContent" + props.ID
+						).style.display = "flex";
 					} else {
-						document.getElementById("DropDownContent").style.display = "none";
+						document.getElementById(
+							"DropDownContent" + props.ID
+						).style.display = "none";
 					}
 				}}
 			>
 				<div>{props.Header}</div>
-				<div className="Arrow">^</div>
 			</button>
-			<div id="DropDownContent">{props.Content}</div>
+			<div id={"DropDownContent" + props.ID}>{props.Content}</div>
 		</div>
 	);
 }

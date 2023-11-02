@@ -107,7 +107,7 @@ HitInfo castRay(vec3 rayOrigin, vec3 rayDirection) {
     float t;
     for (int i = 0; i < numSpheres; ++i) {
     if (IntersectRaySphere(rayOrigin, rayDirection, spheres[i], t)) {
-        if (t < closestHit.distance && t > 0.001) {
+        if (t < closestHit.distance && t > 0.0001) {
             closestHit.hit = true;
             closestHit.distance = t;
             closestHit.sphereCenter = spheres[i].center;
@@ -142,14 +142,43 @@ HitInfo castRay(vec3 rayOrigin, vec3 rayDirection) {
 }
 
 const int maxBounces = 10;
-vec3 skyColor = vec3(0.7, 0.7, 0.9);
-//vec3 skyColor = vec3(0.0, 0.0, 0.0);
+//vec3 skyColor = vec3(0.7, 0.7, 0.9);
+vec3 skyColor = vec3(0.0, 0.0, 0.0);
 
 vec3 calculateReflectionRay(vec3 rayDirection, vec3 normal) {
     return rayDirection - 2.0 * dot(rayDirection, normal) * normal;
 }
 
-uniform vec3 u_greenSpherePosition;
+//5 spheres
+uniform vec3 u_SpherePosition0;
+uniform vec3 u_SpherePosition1;
+uniform vec3 u_SpherePosition2;
+uniform vec3 u_SpherePosition3;
+uniform vec3 u_SpherePosition4;
+
+uniform float u_SphereScale0;
+uniform float u_SphereScale1;
+uniform float u_SphereScale2;
+uniform float u_SphereScale3;
+uniform float u_SphereScale4;
+
+uniform vec3 u_MaterialColor0;
+uniform vec3 u_MaterialColor1;
+uniform vec3 u_MaterialColor2;
+uniform vec3 u_MaterialColor3;
+uniform vec3 u_MaterialColor4;
+
+uniform float u_MaterialRoughness0;
+uniform float u_MaterialRoughness1;
+uniform float u_MaterialRoughness2;
+uniform float u_MaterialRoughness3;
+uniform float u_MaterialRoughness4;
+
+uniform vec3 u_MaterialEmission0;
+uniform vec3 u_MaterialEmission1;
+uniform vec3 u_MaterialEmission2;
+uniform vec3 u_MaterialEmission3;
+uniform vec3 u_MaterialEmission4;
 
 
 void main(void) {
@@ -160,19 +189,19 @@ void main(void) {
     vec3 rayOrigin = vec3(0.0, 0.0, 0.0);
     vec3 rayDirection = normalize(vec3(uv, -1.0));
 
-    materials[0] = Material(vec3(0.4, 0.5, 0.4), 0.5, 0.0, vec3(0.4, 0.5, 0.4));  
-    materials[1] = Material(vec3(0.1, 0.2, 0.5), 1.0, 0.5, vec3(0.0));  
-    materials[2] = Material(vec3(0.1, 1.0, 0.1), 1.0, 0.5, vec3(0.0));  
-    materials[3] = Material(vec3(0.7, 0.7, 1.0), 0.0, 1.0, vec3(0.0, 0.0, 0.0));  
-    materials[4] = Material(vec3(1.0, 0.0, 1.0), 0.9, 1.0, vec3(1.0, 0.0, 1.0));  
+    materials[0] = Material(u_MaterialColor0, u_MaterialRoughness0, 0.0, u_MaterialEmission0);  
+    materials[1] = Material(u_MaterialColor1, u_MaterialRoughness1, 0.0, u_MaterialEmission1);  
+    materials[2] = Material(u_MaterialColor2, u_MaterialRoughness2, 0.0, u_MaterialEmission2);  
+    materials[3] = Material(u_MaterialColor3, u_MaterialRoughness3, 0.0, u_MaterialEmission3);  
+    materials[4] = Material(u_MaterialColor4, u_MaterialRoughness4, 0.0, u_MaterialEmission4);  
 
 
 
-    spheres[0] = Sphere(vec3(75.0, 100.0, 150.0), 125.0, materials[0]);
-    spheres[1] = Sphere(vec3(0.0, -201.1, -5.0), 200.0, materials[1]);
-    spheres[2] = Sphere(vec3(0.5, -0.1, -3.0), 1.0, materials[2]);
-    spheres[3] = Sphere(vec3(-6.0, 2.0, -8.0), 5.0, materials[3]);
-    spheres[4] = Sphere(vec3(5.0, -1.0, 5.0), 0.5, materials[4]);
+    spheres[0] = Sphere(u_SpherePosition0, u_SphereScale0, materials[0]);
+    spheres[1] = Sphere(u_SpherePosition1, u_SphereScale1, materials[1]);
+    spheres[2] = Sphere(u_SpherePosition2, u_SphereScale2, materials[2]);
+    spheres[3] = Sphere(u_SpherePosition3, u_SphereScale3, materials[3]);
+    spheres[4] = Sphere(u_SpherePosition4, u_SphereScale4, materials[4]);
 
     triangleVertices[0] = vec3(-1.0, -1.0, 50.5);
     triangleVertices[1] = vec3( 1.0, -1.0, 50.5);
@@ -199,7 +228,7 @@ void main(void) {
             vec3 normal = hitInfo.normal;
             vec3 localColor = hitInfo.color;  
 
-            accumulatedColor += reflectionMultiplier * localColor * hitInfo.emission * 10.0;  
+            accumulatedColor += reflectionMultiplier * localColor * hitInfo.emission;  
             reflectionMultiplier *= localColor;
            
             rayOrigin = hitPosition + normal * 0.001;

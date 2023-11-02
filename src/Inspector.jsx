@@ -12,6 +12,7 @@ function Inspector(props) {
 						<input
 							className="InspectorChildPropContentInput"
 							type="number"
+							step={0.1}
 							value={props.Position[0]}
 							onChange={(e) => {
 								const newPos = [
@@ -26,6 +27,7 @@ function Inspector(props) {
 						<input
 							className="InspectorChildPropContentInput"
 							type="number"
+							step={0.1}
 							value={props.Position[1]}
 							onChange={(e) => {
 								const newPos = [
@@ -40,6 +42,7 @@ function Inspector(props) {
 						<input
 							className="InspectorChildPropContentInput"
 							type="number"
+							step={0.1}
 							value={props.Position[2]}
 							onChange={(e) => {
 								const newPos = [
@@ -56,34 +59,12 @@ function Inspector(props) {
 						<input
 							className="InspectorChildPropContentInput"
 							type="number"
+							step={0.1}
 							value={props.Scale}
 							onChange={(e) => {
 								props.SetScale(parseFloat(e.target.value));
 							}}
 						/>
-					</div>
-					<div className="InspectorChildPropTitle">Color (RGB)</div>
-					<div className="InspectorChildPropContent">
-						{["R", "G", "B"].map((channel, index) => (
-							<React.Fragment key={channel}>
-								<label className="InspectorChildPropContentLabel">
-									{channel}:
-								</label>
-								<input
-									className="InspectorChildPropContentInput"
-									type="number"
-									min="0"
-									max="1"
-									step="0.01"
-									value={props.Color[index]}
-									onChange={(e) => {
-										const newColor = [...props.Color];
-										newColor[index] = parseFloat(e.target.value);
-										props.SetColor(newColor);
-									}}
-								/>
-							</React.Fragment>
-						))}
 					</div>
 				</div>
 			</div>

@@ -1,7 +1,7 @@
 /* Inspector.css */
 .Inspector {
-	margin-top: -3%;
 	font-size: 100%;
+	margin-bottom: -3%;
 }
 
 .InspectorChild {
@@ -15,7 +15,6 @@
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: space-between;
-	margin-top: 1em;
 }
 
 .InspectorChildPropTitle {

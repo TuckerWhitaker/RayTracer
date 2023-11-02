@@ -12,22 +12,52 @@ function GPUraytracer() {
 	const [Position, SetPosition] = useState([0.5, -0.1, -3.0]);
 
 	const [spheres, setSpheres] = useState([
+		// Blue planet in the center
 		{
-			Position: [0.5, -0.1, -3.0],
-			Scale: 1.0,
-			Color: [1.0, 1.0, 1.0],
-			Roughness: 0.5,
+			Position: [0.0, -101.0, 0.0],
+			Scale: 100.0,
+			Color: [0.0, 0.4, 1.0],
+			Roughness: 0.7,
+			Emission: [0.0, 0.0, 0.0],
 		},
+		// Red moon orbiting the planet
 		{
-			Position: [0.0, 0.0, -3.0],
+			Position: [0, -0.1, -3.5],
 			Scale: 1.0,
-			Color: [1.0, 0.0, 0.0],
-			Roughness: 1.0,
+			Color: [0.9, 0.0, 0.0],
+			Roughness: 0.6,
+			Emission: [0.0, 0.0, 0.0],
+		},
+		// Distant white sun emitting light
+		{
+			Position: [-50.0, 30.0, -60.0],
+			Scale: 40.0,
+			Color: [1.0, 1.0, 1.0],
+			Roughness: 0.1,
+			Emission: [1.0, 1.0, 1.0], // Emitting light
+		},
+		// Green floating island/vegetation 1
+		{
+			Position: [3.0, 0.0, -4.0],
+			Scale: 1.2,
+			Color: [1.0, 1.0, 1.0],
+			Roughness: 0.0,
+			Emission: [0.0, 0.0, 0.0],
+		},
+		// Green floating island/vegetation 2
+		{
+			Position: [-1.0, -0.6, -2.0],
+			Scale: 0.5,
+			Color: [0.0, 0.8, 0.0],
+			Roughness: 0.7,
+			Emission: [0.0, 0.0, 0.0],
 		},
 	]);
 
 	const [selectedSphereIndex, setSelectedSphereIndex] = useState(0);
 	const selectedSphere = spheres[selectedSphereIndex];
+
+	let renderCount = 10;
 
 	const updateSphereData = (index, data) => {
 		const newSpheres = [...spheres];
@@ -49,20 +79,28 @@ function GPUraytracer() {
 
 	const render = useCallback(
 		(gl, shaderProgram, vertexBuffer, time) => {
-			let positions = [];
-			spheres.forEach((sphere) => {
-				positions.push(...sphere.Position);
+			spheres.forEach((sphere, index) => {
+				gl.uniform3fv(
+					gl.getUniformLocation(shaderProgram, `u_SpherePosition${index}`),
+					new Float32Array(sphere.Position)
+				);
+				gl.uniform1f(
+					gl.getUniformLocation(shaderProgram, `u_SphereScale${index}`),
+					sphere.Scale
+				);
+				gl.uniform3fv(
+					gl.getUniformLocation(shaderProgram, `u_MaterialColor${index}`),
+					new Float32Array(sphere.Color)
+				);
+				gl.uniform1f(
+					gl.getUniformLocation(shaderProgram, `u_MaterialRoughness${index}`),
+					sphere.Roughness
+				);
+				gl.uniform3fv(
+					gl.getUniformLocation(shaderProgram, `u_MaterialEmission${index}`),
+					new Float32Array(sphere.Emission)
+				);
 			});
-
-			//console.log(positions);
-			positions = [1.0, 1.0, -10.0];
-			let spherePositions = new Float32Array(positions);
-
-			var colorsLocation = gl.getUniformLocation(
-				shaderProgram,
-				"u_SpherePositions"
-			);
-			gl.uniform3fv(colorsLocation, spherePositions);
 
 			// Get the attribute and uniform locations, enable them
 			var coord = gl.getAttribLocation(shaderProgram, "coordinates");
@@ -105,7 +143,7 @@ function GPUraytracer() {
 			}
 			setAccumulator(Accumulator);
 		},
-		[Position]
+		[spheres, renderCount]
 	);
 
 	function resetCanvases() {
@@ -116,8 +154,8 @@ function GPUraytracer() {
 		gl.clear(gl.COLOR_BUFFER_BIT);
 
 		// Clear the 2D canvas
-		const ctx = canvasRef1.current.getContext("2d");
-		ctx.clearRect(0, 0, canvasRef1.current.width, canvasRef1.current.height);
+		//const ctx = canvasRef1.current.getContext("2d");
+		//ctx.clearRect(0, 0, canvasRef1.current.width, canvasRef1.current.height);
 
 		for (let i = 0; i < Accumulator.length; i++) {
 			Accumulator[i] -= Accumulator[i];
@@ -215,8 +253,6 @@ function GPUraytracer() {
 			// Bind the buffer, i.e., let's use the buffer we've just created
 			gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
 
-			let renderCount = 50;
-
 			for (let i = 1; i < renderCount; i++) {
 				var time = Math.random();
 				render(gl, shaderProgram, vertexBuffer, time);
@@ -236,12 +272,12 @@ function GPUraytracer() {
 	}
 
 	useEffect(() => {
-		Setup();
+		//Setup();
 	}, []);
 
 	useEffect(() => {
-		//console.log(Position);
-	}, [Position]);
+		Setup();
+	}, [spheres]);
 
 	return (
 		<div className="GPUraytracer">
@@ -263,7 +299,9 @@ function GPUraytracer() {
 				<canvas id="canvas1" ref={canvasRef1} width={900} height={900}></canvas>
 			</div>
 			<div className="Column">
+				{selectedSphereIndex}
 				<DropDown
+					ID={0}
 					Header={"Transform"}
 					Content={
 						<Inspector
@@ -288,13 +326,91 @@ function GPUraytracer() {
 						></Inspector>
 					}
 				></DropDown>
-
+				<DropDown
+					ID={1}
+					Header={"Material"}
+					Content={
+						<div className="InspectorChildPropTitle">
+							Color (RGB)
+							<div className="InspectorChildPropContent">
+								{["R", "G", "B"].map((channel, index) => (
+									<React.Fragment key={channel}>
+										<label className="InspectorChildPropContentLabel">
+											{channel}:
+										</label>
+										<input
+											className="InspectorChildPropContentInput"
+											type="number"
+											min="0"
+											max="1"
+											step="0.1"
+											value={selectedSphere.Color[index]}
+											onChange={(e) => {
+												const newColor = [...selectedSphere.Color];
+												newColor[index] = parseFloat(e.target.value);
+												updateSphereData(selectedSphereIndex, {
+													Color: newColor,
+												});
+											}}
+										/>
+									</React.Fragment>
+								))}
+							</div>
+							Emission Color (RGB)
+							<div className="InspectorChildPropContent">
+								{["R", "G", "B"].map((channel, index) => (
+									<React.Fragment key={channel}>
+										<label className="InspectorChildPropContentLabel">
+											{channel}:
+										</label>
+										<input
+											className="InspectorChildPropContentInput"
+											type="number"
+											min="0"
+											max="1"
+											step="0.01"
+											value={selectedSphere.Emission[index]}
+											onChange={(e) => {
+												const newColor = [...selectedSphere.Emission];
+												newColor[index] = parseFloat(e.target.value);
+												updateSphereData(selectedSphereIndex, {
+													Emission: newColor,
+												});
+											}}
+										/>
+									</React.Fragment>
+								))}
+							</div>
+							<label>Roughness: </label>
+							<input
+								className="InspectorChildPropContentInput"
+								type="number"
+								value={selectedSphere.Roughness}
+								step={0.1}
+								onChange={(e) => {
+									const newRoughness = parseFloat(e.target.value);
+									updateSphereData(selectedSphereIndex, {
+										Roughness: newRoughness,
+									});
+								}}
+							></input>
+						</div>
+					}
+				></DropDown>
 				<button
 					onClick={() => {
 						Setup();
 					}}
 				>
 					Render
+				</button>
+				<button
+					onClick={() => {
+						renderCount = 1000;
+						Setup();
+					}}
+				>
+					FullRender
 				</button>
 			</div>
 		</div>

@@ -77,3 +77,8 @@
 	background-color: #282828;
 	cursor: pointer;
 }
+
+.InspectorChildPropTitle {
+	display: flex;
+	flex-direction: column;
+}
