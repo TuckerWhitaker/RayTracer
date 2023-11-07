@@ -9,20 +9,22 @@ function GPUraytracer() {
 	const [Accumulator, setAccumulator] = useState(
 		new Float64Array(900 * 900 * 4)
 	); // Assuming a 900x900 canvas
-	const [Position, SetPosition] = useState([0.5, -0.1, -3.0]);
+
+	let TrianglesData = null;
+	let Trianglenormals = null;
 
 	const [spheres, setSpheres] = useState([
 		// Blue planet in the center
 		{
 			Position: [0.0, -101.0, 0.0],
 			Scale: 100.0,
-			Color: [0.0, 0.4, 1.0],
+			Color: [0.9, 0.9, 0.9],
 			Roughness: 0.7,
 			Emission: [0.0, 0.0, 0.0],
 		},
 		// Red moon orbiting the planet
 		{
-			Position: [0, -0.1, -3.5],
+			Position: [0, -0.1, -1.5],
 			Scale: 1.0,
 			Color: [0.9, 0.0, 0.0],
 			Roughness: 0.6,
@@ -32,22 +34,22 @@ function GPUraytracer() {
 		{
 			Position: [-50.0, 30.0, -60.0],
 			Scale: 40.0,
-			Color: [1.0, 1.0, 1.0],
+			Color: [1.0, 1.0, 0.9],
 			Roughness: 0.1,
-			Emission: [1.0, 1.0, 1.0], // Emitting light
+			Emission: [5.0, 5.0, 0.9], // Emitting light
 		},
 		// Green floating island/vegetation 1
 		{
-			Position: [3.0, 0.0, -4.0],
-			Scale: 1.2,
+			Position: [7.0, 3.0, -5.0],
+			Scale: 5.0,
 			Color: [1.0, 1.0, 1.0],
 			Roughness: 0.0,
 			Emission: [0.0, 0.0, 0.0],
 		},
 		// Green floating island/vegetation 2
 		{
-			Position: [-1.0, -0.6, -2.0],
-			Scale: 0.5,
+			Position: [-3.5, -0.1, -2.5],
+			Scale: 1.0,
 			Color: [0.0, 0.8, 0.0],
 			Roughness: 0.7,
 			Emission: [0.0, 0.0, 0.0],
@@ -75,6 +77,119 @@ function GPUraytracer() {
 			data[i] = accumulator[i] / count;
 		}
 		return new ImageData(data, width, height);
+	}
+
+	function parseOBJ(objText) {
+		// Initialize arrays to hold the different kinds of data in the OBJ file
+		const vertices = [];
+		const textures = [];
+		const normals = [];
+		const faces = [];
+
+		// Split the input text into lines
+		const objLines = objText.split("\n");
+
+		// Loop through each line
+		for (let line of objLines) {
+			// Trim whitespace and skip empty lines/comments
+			line = line.trim();
+			if (line === "" || line.startsWith("#")) continue;
+
+			const components = line.split(/\s+/);
+			const type = components[0];
+
+			switch (type) {
+				case "v": // Geometric vertices
+					vertices.push(components.slice(1).map(Number));
+					break;
+				case "vt": // Texture coordinates
+					textures.push(components.slice(1).map(Number));
+					break;
+				case "vn": // Vertex normals
+					normals.push(components.slice(1).map(Number));
+					break;
+				case "f": // Face definitions
+					// This assumes that the face vertices are defined in the format "v/vt/vn"
+					const face = components.slice(1).map((face) => {
+						// For each vertex definition, we may have a vertex index, a texture index, and a normal index
+						const [v, vt, vn] = face
+							.split("/")
+							.map((numStr) => parseInt(numStr) || undefined);
+						// OBJ indices are 1-based, we adjust them to be 0-based
+						return {
+							v: v ? v - 1 : undefined,
+							vt: vt ? vt - 1 : undefined,
+							vn: vn ? vn - 1 : undefined,
+						};
+					});
+					faces.push(face);
+					break;
+				// Other data types like 'vp' (parameter space vertices), 's' (smoothing group), and 'usemtl' (material) are not handled in this simple example.
+				// Add additional cases as needed.
+			}
+		}
+
+		// Log out the parsed data
+
+		// Return the parsed data
+		return { vertices, textures, normals, faces };
+	}
+
+	function parseOBJToTriangles(objText) {
+		const vertices = [];
+		const triangles = [];
+
+		const objLines = objText.split("\n");
+
+		for (let line of objLines) {
+			line = line.trim();
+			if (line === "" || line.startsWith("#")) continue;
+
+			const components = line.split(/\s+/);
+			const type = components[0];
+
+			switch (type) {
+				case "v":
+					// Convert to numbers and store each vertex
+					vertices.push(components.slice(1).map(Number));
+					break;
+				case "f":
+					// This assumes all faces are triangles or quads
+					const faceVertices = components.slice(1).map((component) => {
+						// We're only interested in the vertex index (1-based index in OBJ files)
+						return parseInt(component.split("/")[0], 10) - 1; // Convert to 0-based index
+					});
+					// For a triangle, just add the vertex indices
+					if (faceVertices.length === 3) {
+						triangles.push(...faceVertices);
+					}
+					// For a quad, split it into two triangles
+					else if (faceVertices.length === 4) {
+						// First triangle
+						triangles.push(faceVertices[0], faceVertices[1], faceVertices[2]);
+						// Second triangle
+						triangles.push(faceVertices[0], faceVertices[2], faceVertices[3]);
+					}
+					// More complex polygons are not handled in this example
+					break;
+			}
+		}
+
+		// At this point, triangles array contains indices to vertex array
+		// If you need actual vertices data (for example, for WebGL buffers), you have to unpack them
+		const unpackedTriangles = [];
+		for (let i = 0; i < triangles.length; i += 3) {
+			unpackedTriangles.push(
+				...vertices[triangles[i]],
+				...vertices[triangles[i + 1]],
+				...vertices[triangles[i + 2]]
+			);
+		}
+
+		// Log the unpacked triangles
+		console.log(unpackedTriangles);
+
+		return unpackedTriangles;
 	}
 
 	const render = useCallback(
@@ -125,6 +240,29 @@ function GPUraytracer() {
 			);
 			gl.enableVertexAttribArray(textureCoord);
 
+			//const VerticesArray = new Float32Array(RayTraceData.vertices);
+
+			const TrianglesArray = new Float32Array(TrianglesData);
+
+			const NormalsArray = new Float32Array(Trianglenormals.flat());
+
+			//const VerticesArrayLocation = gl.getUniformLocation(
+			//	shaderProgram,
+			//	"u_VerticesArray"
+			//);
+			const TrianglesArrayLocation = gl.getUniformLocation(
+				shaderProgram,
+				"u_TrianglesArray"
+			);
+			const NormalsArrayLocation = gl.getUniformLocation(
+				shaderProgram,
+				"u_NormalsArray"
+			);
+			//gl.uniform3fv(VerticesArrayLocation, VerticesArray);
+			gl.uniform1fv(NormalsArrayLocation, NormalsArray);
+
+			gl.uniform1fv(TrianglesArrayLocation, TrianglesArray);
+
 			var u_timeLocation = gl.getUniformLocation(shaderProgram, "u_time");
 			gl.uniform1f(u_timeLocation, time);
 
@@ -137,10 +275,15 @@ function GPUraytracer() {
 			const pixels = new Uint8Array(900 * 900 * 4);
 			gl.readPixels(0, 0, 900, 900, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
+			let Pcount = 0;
 			// Update the Accumulator array
 			for (let i = 0; i < pixels.length; i++) {
-				Accumulator[i] += pixels[i];
+				Accumulator[i] += pixels[i] * 1000;
+				if (pixels[i] > 100.0) {
+					Pcount++;
+				}
 			}
+
 			setAccumulator(Accumulator);
 		},
 		[spheres, renderCount]
@@ -164,7 +307,6 @@ function GPUraytracer() {
 	}
 
 	function Setup() {
-		console.log(spheres);
 		const canvas = canvasRef.current;
 		const canvas1 = canvasRef1.current;
 		const gl = canvas.getContext("webgl");
@@ -181,99 +323,108 @@ function GPUraytracer() {
 			fetch("./vertexShader.glsl").then((response) => response.text()),
 			fetch("./fragmentShader.glsl").then((response) => response.text()),
 		]).then((shaders) => {
-			const [vertShaderCode, fragShaderCode] = shaders;
-			const start = Date.now();
-			// Create the Vertex Shader object
-			var vertShader = gl.createShader(gl.VERTEX_SHADER);
+			fetch("basicCube.obj")
+				.then((response) => response.text())
+				.then((objText) => {
+					let objTextCpy = objText;
+					const objData = parseOBJ(objTextCpy);
+					console.log(objData.normals);
 
-			// Attach the source code to the shader object
-			gl.shaderSource(vertShader, vertShaderCode);
+					Trianglenormals = objData.normals;
 
-			// Compile the shader
-			gl.compileShader(vertShader);
+					let TD = parseOBJToTriangles(objText);
+					TrianglesData = TD;
 
-			// Check for compilation errors
-			if (!gl.getShaderParameter(vertShader, gl.COMPILE_STATUS)) {
-				console.error(
-					"ERROR compiling vertex shader!",
-					gl.getShaderInfoLog(vertShader)
-				);
-			}
+					const [vertShaderCode, fragShaderCode] = shaders;
+					const start = Date.now();
+					// Create the Vertex Shader object
+					var vertShader = gl.createShader(gl.VERTEX_SHADER);
 
-			// Fragment Shader code
+					// Attach the source code to the shader object
+					gl.shaderSource(vertShader, vertShaderCode);
 
-			// Create the Fragment Shader object
-			var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+					// Compile the shader
+					gl.compileShader(vertShader);
 
-			// Attach the source code to the shader object
-			gl.shaderSource(fragShader, fragShaderCode);
+					// Check for compilation errors
+					if (!gl.getShaderParameter(vertShader, gl.COMPILE_STATUS)) {
+						console.error(
+							"ERROR compiling vertex shader!",
+							gl.getShaderInfoLog(vertShader)
+						);
+					}
 
-			// Compile the shader
-			gl.compileShader(fragShader);
+					// Fragment Shader code
 
-			// Check for compilation errors
-			if (!gl.getShaderParameter(fragShader, gl.COMPILE_STATUS)) {
-				console.error(
-					"ERROR compiling fragment shader!",
-					gl.getShaderInfoLog(fragShader)
-				);
-			}
+					// Create the Fragment Shader object
+					var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
 
-			// Create a shader program object
-			var shaderProgram = gl.createProgram();
+					// Attach the source code to the shader object
+					gl.shaderSource(fragShader, fragShaderCode);
 
-			// Attach the vertex shader to the program object
-			gl.attachShader(shaderProgram, vertShader);
+					// Compile the shader
+					gl.compileShader(fragShader);
 
-			// Attach the fragment shader to the program object
-			gl.attachShader(shaderProgram, fragShader);
+					// Check for compilation errors
+					if (!gl.getShaderParameter(fragShader, gl.COMPILE_STATUS)) {
+						console.error(
+							"ERROR compiling fragment shader!",
+							gl.getShaderInfoLog(fragShader)
+						);
+					}
 
-			// Link the program object to the WebGL context
-			gl.linkProgram(shaderProgram);
+					// Create a shader program object
+					var shaderProgram = gl.createProgram();
 
-			// Check for linking errors
-			if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-				console.error(
-					"ERROR linking program!",
-					gl.getProgramInfoLog(shaderProgram)
-				);
-			}
+					// Attach the vertex shader to the program object
+					gl.attachShader(shaderProgram, vertShader);
 
-			// Use the program object
-			gl.useProgram(shaderProgram);
-			// Create a buffer and put the vertices in it
-			var vertexBuffer = gl.createBuffer();
-			gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-			var vertices = new Float32Array([
-				-1, 1, 0, 1, -1, -1, 0, 0, 1, -1, 1, 0, 1, 1, 1, 1,
-			]);
+					// Attach the fragment shader to the program object
+					gl.attachShader(shaderProgram, fragShader);
 
-			gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+					// Link the program object to the WebGL context
+					gl.linkProgram(shaderProgram);
 
-			// Bind the buffer, i.e., let's use the buffer we've just created
-			gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+					// Check for linking errors
+					if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+						console.error(
+							"ERROR linking program!",
+							gl.getProgramInfoLog(shaderProgram)
+						);
+					}
 
-			for (let i = 1; i < renderCount; i++) {
-				var time = Math.random();
-				render(gl, shaderProgram, vertexBuffer, time);
-			}
-			const imageData = processAccumulatorData(
-				Accumulator,
-				renderCount,
-				canvas.width,
-				canvas.height
-			);
+					// Use the program object
+					gl.useProgram(shaderProgram);
+					// Create a buffer and put the vertices in it
+					var vertexBuffer = gl.createBuffer();
+					gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+					var vertices = new Float32Array([
+						-1, 1, 0, 1, -1, -1, 0, 0, 1, -1, 1, 0, 1, 1, 1, 1,
+					]);
 
-			const end = Date.now();
-			console.log(`Execution time: ${end - start} ms`);
-			// Draw the ImageData to the canvas
-			ctx.putImageData(imageData, 0, 0);
+					gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+					// Bind the buffer, i.e., let's use the buffer we've just created
+					gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+
+					for (let i = 1; i < renderCount; i++) {
+						var time = Math.random();
+						render(gl, shaderProgram, vertexBuffer, time);
+					}
+					const imageData = processAccumulatorData(
+						Accumulator,
+						renderCount,
+						canvas.width,
+						canvas.height
+					);
+
+					const end = Date.now();
+					console.log(`Execution time: ${end - start} ms`);
+					// Draw the ImageData to the canvas
+					ctx.putImageData(imageData, 0, 0);
+				});
 		});
 	}
-
-	useEffect(() => {
-		//Setup();
-	}, []);
 
 	useEffect(() => {
 		Setup();
@@ -367,8 +518,8 @@ function GPUraytracer() {
 											className="InspectorChildPropContentInput"
 											type="number"
 											min="0"
-											max="1"
-											step="0.01"
+											max="1000"
+											step="0.1"
 											value={selectedSphere.Emission[index]}
 											onChange={(e) => {
 												const newColor = [...selectedSphere.Emission];

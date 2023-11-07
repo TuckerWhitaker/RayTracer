@@ -67,9 +67,7 @@ bool IntersectRaySphere(vec3 rayOrigin, vec3 rayDirection, Sphere sphere, out fl
         return true;
     }
 }
-const int numTriangles = 2;  // Example: Two triangles for demonstration
-vec3 triangleVertices[numTriangles * 3];
-Material triangleMaterials[numTriangles];
+
 
 bool IntersectRayTriangle(vec3 rayOrigin, vec3 rayDirection, vec3 v0, vec3 v1, vec3 v2, out float t) {
     vec3 edge1 = v1 - v0;
@@ -107,7 +105,7 @@ HitInfo castRay(vec3 rayOrigin, vec3 rayDirection) {
     float t;
     for (int i = 0; i < numSpheres; ++i) {
     if (IntersectRaySphere(rayOrigin, rayDirection, spheres[i], t)) {
-        if (t < closestHit.distance && t > 0.0001) {
+        if (t < closestHit.distance) {
             closestHit.hit = true;
             closestHit.distance = t;
             closestHit.sphereCenter = spheres[i].center;
@@ -119,31 +117,13 @@ HitInfo castRay(vec3 rayOrigin, vec3 rayDirection) {
         }
     }
 }
-    for (int i = 0; i < numTriangles; ++i) {
-        vec3 v0 = triangleVertices[i * 3 + 0];
-        vec3 v1 = triangleVertices[i * 3 + 1];
-        vec3 v2 = triangleVertices[i * 3 + 2];
-       
-        if (IntersectRayTriangle(rayOrigin, rayDirection, v0, v1, v2, t)) {
-            if (t < closestHit.distance && t > 0.001) {
-                closestHit.hit = true;
-                closestHit.distance = t;
-                // Note: We don't have a "triangleCenter", just taking v0 for demonstration
-                closestHit.sphereCenter = v0;
-                closestHit.color = triangleMaterials[i].color;
-                closestHit.roughness = triangleMaterials[i].roughness;
-                closestHit.metallic = triangleMaterials[i].metallic;
-                closestHit.emission = triangleMaterials[i].emission;
-                closestHit.normal = calculateTriangleNormal(v0, v1, v2);
-            }
-        }
-    }
+    
     return closestHit;
 }
 
 const int maxBounces = 10;
-//vec3 skyColor = vec3(0.7, 0.7, 0.9);
-vec3 skyColor = vec3(0.0, 0.0, 0.0);
+vec3 skyColor = vec3(0.7, 0.7, 0.9);
+//vec3 skyColor = vec3(0.0, 0.0, 0.0);
 
 vec3 calculateReflectionRay(vec3 rayDirection, vec3 normal) {
     return rayDirection - 2.0 * dot(rayDirection, normal) * normal;
@@ -180,13 +160,93 @@ uniform vec3 u_MaterialEmission2;
 uniform vec3 u_MaterialEmission3;
 uniform vec3 u_MaterialEmission4;
 
+uniform float u_TrianglesArray[108];
+uniform float u_NormalsArray[18];
+
+struct Triangle {
+    vec3 v0;
+    vec3 v1;
+    vec3 v2;
+};
+
+
+
+bool IntersectRayTriangle(vec3 rayOrigin, vec3 rayDirection, Triangle triangle, out float t, out vec3 hitNormal) {
+    const float EPSILON = 0.000001;
+    vec3 edge1, edge2, h, s, q;
+    float a, f, u, v;
+
+    edge1 = triangle.v1 - triangle.v0;
+    edge2 = triangle.v2 - triangle.v0;
+    h = cross(rayDirection, edge2);
+    a = dot(edge1, h);
+    
+    if (a > -EPSILON && a < EPSILON) {
+        return false; // This ray is parallel to this triangle.
+    }
+    
+    f = 1.0 / a;
+    s = rayOrigin - triangle.v0;
+    u = f * dot(s, h);
+    
+    if (u < 0.0 || u > 1.0) {
+        return false;
+    }
+    
+    q = cross(s, edge1);
+    v = f * dot(rayDirection, q);
+    
+    if (v < 0.0 || u + v > 1.0) {
+        return false;
+    }
+    
+    // At this stage we can compute t to find out where the intersection point is on the line.
+    t = f * dot(edge2, q);
+    
+    if (t > EPSILON) { // ray intersection
+        hitNormal = cross(edge1, edge2);
+        hitNormal = normalize(hitNormal);
+        return true;
+    }
+    
+    return false; // This means that there is a line intersection but not a ray intersection.
+}
+
+
+Material TriangleMaterial = Material(vec3(1.0, 0.0, 1.0), 0.7, 0.0, vec3(0.0, 0.0, 0.0));  
+
+HitInfo IntersectRayTriangles(vec3 rayOrigin, vec3 rayDirection, Triangle triangles[36]) {
+
+    HitInfo closestHit;
+    closestHit.hit = false;
+    closestHit.distance = 999999.0; // Initialize with a far away distance
+    float t;
+    vec3 hitNormal;
+
+    for (int i = 0; i < 36; ++i) {
+        if (IntersectRayTriangle(rayOrigin, rayDirection, triangles[i], t, hitNormal)) {
+            if (t < closestHit.distance) {
+                closestHit.hit = true;
+                closestHit.distance = t;
+                closestHit.normal = vec3(u_NormalsArray[i],u_NormalsArray[i + 1], u_NormalsArray[i + 2]);
+                closestHit.color = TriangleMaterial.color;
+                closestHit.roughness = TriangleMaterial.roughness;
+                closestHit.metallic = TriangleMaterial.metallic;
+                closestHit.emission = TriangleMaterial.emission;
+            }
+        }
+    }
+    
+    return closestHit;
+}
+
 
 void main(void) {
     vec2 resolution = vec2(900.0, 900.0);
     vec2 uv = (gl_FragCoord.xy / resolution - 0.5) * 2.0;
     uv.x *= resolution.x / resolution.y;
 
-    vec3 rayOrigin = vec3(0.0, 0.0, 0.0);
+    vec3 rayOrigin = vec3(0.0, 0.0, 4.0);
     vec3 rayDirection = normalize(vec3(uv, -1.0));
 
     materials[0] = Material(u_MaterialColor0, u_MaterialRoughness0, 0.0, u_MaterialEmission0);  
@@ -203,32 +263,43 @@ void main(void) {
     spheres[3] = Sphere(u_SpherePosition3, u_SphereScale3, materials[3]);
     spheres[4] = Sphere(u_SpherePosition4, u_SphereScale4, materials[4]);
 
-    triangleVertices[0] = vec3(-1.0, -1.0, 50.5);
-    triangleVertices[1] = vec3( 1.0, -1.0, 50.5);
-    triangleVertices[2] = vec3(-1.0,  1.0, 50.5);
-    triangleVertices[3] = vec3( 1.0, -1.0, 50.5);
-    triangleVertices[4] = vec3( 1.0,  1.0, 50.5);
-    triangleVertices[5] = vec3(-1.0,  1.0, 50.5);
-    triangleMaterials[0] = Material(vec3(0.0, 0.0, 0.0), 1.0, 0.5, vec3(0.0));
-    triangleMaterials[1] = Material(vec3(0.0, 0.0, 0.0), 1.0, 0.5, vec3(0.0));
 
-
-    
-
+    //u_TrianglesArray
+    Triangle triangles[36];
+    for(int a = 0; a < 100; a += 3){
+        triangles[a/3].v0 = vec3(u_TrianglesArray[a], u_TrianglesArray[a + 1], u_TrianglesArray[a + 2]);
+        triangles[a/3].v1 = vec3(u_TrianglesArray[a + 3], u_TrianglesArray[a + 4], u_TrianglesArray[a + 5]);
+        triangles[a/3].v2 = vec3(u_TrianglesArray[a + 6], u_TrianglesArray[a + 7], u_TrianglesArray[a + 8]);
+    }
 
     vec3 accumulatedColor = vec3(0.0);
     vec3 reflectionMultiplier = vec3(1.0);  // Initialize reflection multiplier to 1
 
     for (int bounce = 0; bounce < maxBounces; ++bounce) {
 
-        HitInfo hitInfo = castRay(rayOrigin, rayDirection);
+        HitInfo sphereHit = castRay(rayOrigin, rayDirection);
+        HitInfo triangleHit = IntersectRayTriangles(rayOrigin, rayDirection, triangles);
 
-        if (hitInfo.hit) {
-            vec3 hitPosition = calculateHitPosition(rayOrigin, rayDirection, hitInfo.distance);
-            vec3 normal = hitInfo.normal;
-            vec3 localColor = hitInfo.color;  
 
-            accumulatedColor += reflectionMultiplier * localColor * hitInfo.emission;  
+        HitInfo closestHit;
+        closestHit.hit = false;
+
+
+        if (sphereHit.hit && sphereHit.distance < triangleHit.distance) {
+            closestHit = sphereHit;
+        } else if (triangleHit.hit) {
+            closestHit = triangleHit;
+        } else {
+            closestHit.hit = false;
+        }
+
+        if (closestHit.hit) {
+            vec3 hitPosition = calculateHitPosition(rayOrigin, rayDirection, closestHit.distance);
+            vec3 normal = closestHit.normal;
+            vec3 localColor = closestHit.color;  
+
+            accumulatedColor += (reflectionMultiplier * localColor * closestHit.emission * 10.0);  
+            //accumulatedColor += closestHit.emission * 10.0;
             reflectionMultiplier *= localColor;
            
             rayOrigin = hitPosition + normal * 0.001;
@@ -238,7 +309,7 @@ void main(void) {
                     (random(gl_FragCoord.xy + vec2(24.53, 9.49))*2.0)-1.0
             );
 
-            rayDirection = mix(normal, normalize(randomVector), hitInfo.roughness);
+            rayDirection = mix(normal, normalize(randomVector), closestHit.roughness);
         } 
         else
         {
@@ -248,5 +319,6 @@ void main(void) {
         }
 }
     accumulatedColor = sqrt(accumulatedColor);
+    accumulatedColor = accumulatedColor/1000.0;
     gl_FragColor = vec4(accumulatedColor, 1.0);
 }
